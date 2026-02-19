@@ -1,0 +1,190 @@
+# Upsun configuration, generated using AI at: 2026-02-19T17:19:36+01:00
+# AI can make mistakes. Please modify this file to suit your needs.
+applications:
+  adservice:
+    source:
+      root: src/adservice
+    type: java:21
+    hooks:
+      build: |
+        set -ex
+        ./gradlew installDist
+    web:
+      commands:
+        start: /app/build/install/hipstershop/bin/AdService
+      upstream:
+        socket_family: tcp
+        protocol: http
+
+  cartservice:
+    source:
+      root: src/cartservice/src
+    type: dotnet:7.0
+    hooks:
+      build: |
+        set -ex
+        dotnet restore cartservice.csproj
+        dotnet publish cartservice.csproj -p:PublishSingleFile=true --self-contained true -p:PublishTrimmed=true -p:TrimMode=full -c release -o /cartservice
+    web:
+      commands:
+        start: /app/cartservice
+      upstream:
+        socket_family: tcp
+        protocol: http
+
+  checkoutservice:
+    source:
+      root: src/checkoutservice
+    type: golang:1.25
+    hooks:
+      build: |
+        set -ex
+        go mod download
+        go build -ldflags="-s -w" -o /checkoutservice .
+    web:
+      commands:
+        start: /checkoutservice
+      upstream:
+        socket_family: tcp
+        protocol: http
+
+  currencyservice:
+    source:
+      root: src/currencyservice
+    type: nodejs:20
+    build:
+      flavor: none
+    hooks:
+      build: |
+        set -ex
+        npm install --omit=dev
+    web:
+      commands:
+        start: node server.js
+      locations:
+        /:
+          root: public
+          passthru: true
+
+  emailservice:
+    source:
+      root: src/emailservice
+    type: python:3.13
+    hooks:
+      build: |
+        set -ex
+        pip install -r requirements.txt
+    web:
+      commands:
+        start: python email_server.py
+
+  frontend:
+    source:
+      root: src/frontend
+    type: golang:1.25
+    hooks:
+      build: |
+        set -ex
+        go mod download
+        go build -ldflags="-s -w" -o /go/bin/frontend .
+    web:
+      commands:
+        start: /go/bin/frontend
+      locations:
+        /:
+          root: static
+          passthru: true
+      upstream:
+        socket_family: tcp
+        protocol: http
+
+  loadgenerator:
+    source:
+      root: src/loadgenerator
+    type: python:3.13
+    hooks:
+      build: |
+        set -ex
+        pip install --prefix="/install" -r requirements.txt
+    web:
+      commands:
+        start: locust --host="http://${FRONTEND_ADDR}" --headless -u "${USERS:-10}" -r "${RATE:-1}" 2>&1
+    relationships:
+      frontend: {}
+
+  paymentservice:
+    source:
+      root: src/paymentservice
+    type: nodejs:20
+    build:
+      flavor: none
+    hooks:
+      build: |
+        set -ex
+        npm install --omit=dev
+    web:
+      commands:
+        start: node index.js
+
+  productcatalogservice:
+    source:
+      root: src/productcatalogservice
+    type: golang:1.25
+    hooks:
+      build: |
+        set -ex
+        go mod download
+        go build -ldflags="-s -w" -o /productcatalogservice .
+    web:
+      commands:
+        start: /productcatalogservice
+      upstream:
+        socket_family: tcp
+        protocol: http
+
+  recommendationservice:
+    source:
+      root: src/recommendationservice
+    type: python:3.13
+    hooks:
+      build: |
+        set -ex
+        pip install -r requirements.txt
+    web:
+      commands:
+        start: python recommendation_server.py
+
+  shippingservice:
+    source:
+      root: src/shippingservice
+    type: golang:1.25
+    hooks:
+      build: |
+        set -ex
+        go mod download
+        go build -ldflags="-s -w" -o /go/bin/shippingservice .
+    web:
+      commands:
+        start: /go/bin/shippingservice
+      upstream:
+        socket_family: tcp
+        protocol: http
+
+  shoppingassistantservice:
+    source:
+      root: src/shoppingassistantservice
+    type: python:3.13
+    hooks:
+      build: |
+        set -ex
+        pip install -r requirements.txt
+    web:
+      commands:
+        start: python shoppingassistantservice.py
+
+services: {}
+
+routes:
+  https://{default}/:
+    type: upstream
+    upstream: frontend:http
